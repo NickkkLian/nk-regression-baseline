@@ -1,7 +1,7 @@
 {
   "name": "nk-regression-baseline",
   "description": "Freeze the byte-exact output of production code on its default inputs before you change it, and compare after.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "Nick Lian",
     "url": "https://github.com/NickkkLian"
