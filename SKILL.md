@@ -14,6 +14,8 @@ could not: with the feature switched off — the state every existing caller was
 was "non-empty" for a different reason now sent seven unrelated jobs to a directory that did not exist.
 No new-feature test ever contains the input "feature absent".
 
+> **Paths.** Commands in this skill start with `${…SKILL_DIR}`: this skill's own folder, the one that contains this SKILL.md. Claude Code fills it in. If your agent shows the placeholder as written (Codex, Cursor, Gemini CLI and others), replace it with that folder's absolute path before you run the command. Left as it is, it expands to nothing and the path breaks.
+
 ## When this applies
 
 - You are changing code that is already in use: a function with callers, a script a scheduler runs, a
