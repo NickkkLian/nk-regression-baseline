@@ -83,6 +83,16 @@ def compare(bdir, name, cwd=None):
     return (1 if lines else 0), lines
 
 
+def nbytes(text):
+    return len(text.encode("utf-8"))                      # sizes are UTF-8 bytes; len() of a str counts characters
+
+
+def freeze_line(name, rec, with_stderr=True):
+    return (f"frozen {name}: exit={rec['exit']} stdout={nbytes(rec['stdout'])}B"
+            + (f" stderr={nbytes(rec['stderr'])}B" if with_stderr else "") + f" files={len(rec['file_sha'])}"
+            + ("   ⚠️ empty output and no files — is the baseline alive?" if not rec["stdout"] and not rec["file_sha"] else ""))
+
+
 def selftest():
     ok, lines = True, []
 
@@ -96,6 +106,7 @@ def selftest():
         cmd = [sys.executable, "tool.py"]
         rec = freeze(bdir, "totals", cmd, d, ["out.json"], [r"\d{4}-\d{2}-\d{2}T[\d:.]+"])
         chk(rec["exit"] == 0 and "total 42" in rec["stdout"] and "<NORM>" in rec["stdout"] and "out.json" in rec["file_sha"], "freeze records exit, normalised stdout and output-file hashes")
+        chk("stdout=3B" in freeze_line("x", {"exit": 0, "stdout": "é\n", "stderr": "", "file_sha": {}}), "reported sizes are UTF-8 bytes, not characters ('é' plus a newline is 3 bytes)")
         rc, msg = compare(bdir, "totals")
         chk(rc == 0 and not msg, f"control: unchanged tool compares identical ({msg})")
         open(tool, "w").write("import json,sys,datetime\nprint('total', 43)\nprint('run at', datetime.datetime.now().isoformat())\njson.dump({'a':1}, open('out.json','w'))\nsys.exit(0)\n")
@@ -135,15 +146,14 @@ def main():
         print("--dir is required"); return 2
     if a.cmd == "list":
         for f in sorted(glob.glob(os.path.join(a.dir, "*.json"))):
-            r = json.load(open(f)); print(f"{r['name']:<24} exit={r['exit']} stdout={len(r['stdout'])}B files={len(r['file_sha'])}  {' '.join(r['cmd'])[:60]}")
+            r = json.load(open(f)); print(f"{r['name']:<24} exit={r['exit']} stdout={nbytes(r['stdout'])}B files={len(r['file_sha'])}  {' '.join(r['cmd'])[:60]}")
         return 0
     if a.cmd == "freeze":
         argv = rest[1:] if rest and rest[0] == "--" else rest
         if not a.name or not argv:
             print("freeze needs --name and a command after --"); return 2
         rec = freeze(a.dir, a.name, argv, a.cwd, a.files, a.normalize)
-        print(f"frozen {a.name}: exit={rec['exit']} stdout={len(rec['stdout'])}B stderr={len(rec['stderr'])}B files={len(rec['file_sha'])}"
-              + ("   ⚠️ empty output and no files — is the baseline alive?" if not rec["stdout"] and not rec["file_sha"] else ""))
+        print(freeze_line(a.name, rec))
         return 0
     if a.cmd == "compare":
         rc, msg = compare(a.dir, a.name, a.cwd)
@@ -153,7 +163,7 @@ def main():
     for it in items:
         if a.mode == "freeze":
             rec = freeze(a.dir, it["name"], it["cmd"], it.get("cwd", a.cwd), it.get("files", []), it.get("normalize", []))
-            print(f"frozen {it['name']}: exit={rec['exit']} stdout={len(rec['stdout'])}B files={len(rec['file_sha'])}")
+            print(freeze_line(it["name"], rec, with_stderr=False))
         else:
             rc, msg = compare(a.dir, it["name"], it.get("cwd", a.cwd)); worst = max(worst, rc)
             print(f"{'✔' if rc == 0 else '✘'} {it['name']}"); print("\n".join("  " + m for m in msg))
