@@ -26,6 +26,14 @@ The full procedure, the boundaries and where the rules came from are in [SKILL.m
 5. Compare
 6. Freeze the new state
 
+## Why it is built this way
+
+**The idea.** New-feature tests prove the new code runs; they say nothing about the old behaviour. No new-feature test ever contains the input "feature absent".
+
+**Where it came from.** Own practice, 2026-08 to 2026-09: a media pipeline regression caught only by the byte-level baseline; two experiment rounds whose baseline arm was dead (a capped input meant the mechanism under study never started), so eight comparisons had to be thrown away.
+
+**Evidence.** What was broken on purpose to show that the self-tests can fail is under [Verify](#verify); what was run end to end, and in which agent, is under [Compatibility](#compatibility).
+
 ## Install
 
 Pick one of four ways: three for Claude Code, one for OpenAI Codex. Skills load when a session starts, so open a **new** session after installing.
