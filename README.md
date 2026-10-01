@@ -1,11 +1,51 @@
 # nk-regression-baseline
 
-![nk-regression-baseline](https://raw.githubusercontent.com/NickkkLian/nickkk-skills/main/gallery/social/nk-regression-baseline.png)
-
 An agent skill for [Claude Code](https://code.claude.com) and [OpenAI Codex](https://developers.openai.com/codex). Freeze the byte-exact output of production code on its default inputs before you change it, and compare after.
+
+**What you get.** One real run of nk-regression-baseline 0.1.2, copied from the terminal on 2026-09-30:
+
+```text
+$ python3 scripts/baseline.py freeze --dir demo/baselines --name report -- cat demo/report.txt
+frozen report: exit=0 stdout=16B stderr=0B files=0
+$ python3 scripts/baseline.py compare --dir demo/baselines --name report
+✘ report: differs
+stdout differs (5 diff lines):
+  --- baseline/stdout
+  +++ now/stdout
+  @@ -1 +1 @@
+  -rows 3 total 42
+  +rows 2 total 24
+```
+
+![nk-regression-baseline](https://raw.githubusercontent.com/NickkkLian/nickkk-skills/main/gallery/social/nk-regression-baseline.png)
 
 Part of [nickkk-skills](https://github.com/NickkkLian/nickkk-skills) — skills that stop an AI coding agent's
 "done, tested, safe" from being taken on faith.
+
+## Try it
+
+Nothing is installed and nothing under `~/.claude` changes: clone, run the self-test, run the example (it only writes inside the clone).
+
+```bash
+git clone https://github.com/NickkkLian/nk-regression-baseline && cd nk-regression-baseline
+python3 scripts/baseline.py --selftest
+mkdir -p demo && printf 'rows 3 total 42\n' > demo/report.txt
+python3 scripts/baseline.py freeze --dir demo/baselines --name report -- cat demo/report.txt
+printf 'rows 2 total 24\n' > demo/report.txt
+python3 scripts/baseline.py compare --dir demo/baselines --name report
+```
+
+The self-test prints:
+
+```text
+baseline selftest · 11/11 passed
+```
+
+The last command prints the block at the top of this page; its last line is the one below, and its exit code is 1 (non-zero on purpose: it found something).
+
+```text
+  +rows 2 total 24
+```
 
 ![nk-regression-baseline demo: before and after](https://raw.githubusercontent.com/NickkkLian/nickkk-skills/main/gallery/nk-regression-baseline.gif)
 
@@ -19,12 +59,12 @@ The full procedure, the boundaries and where the rules came from are in [SKILL.m
 
 ## How it works
 
-1. Freeze before touching anything
-2. Check the frozen run is alive
-3. Normalize only what is truly volatile
-4. Change the code
-5. Compare
-6. Freeze the new state
+1. Freeze before touching anything. Pick the commands existing users run, with their default inputs.
+2. Check the frozen run is alive.
+3. Normalize only what is truly volatile (timestamps, temp paths, run ids) with `--normalize REGEX`.
+4. Change the code. Add the feature, refactor, clean up.
+5. Compare. `baseline.py compare --dir .baselines --name totals` — exit 0 means byte-identical stdout, stderr, exit code and output-file hashes after normalization; exit 1 prints a unified diff and the changed files.
+6. Freeze the new state once the change is accepted, so the next change has a baseline too.
 
 ## Why it is built this way
 
@@ -111,9 +151,14 @@ In this skill's Codex run, every call into the skill folder's scripts/ used that
 python3 scripts/baseline.py --selftest
 ```
 
-Standard library only, Python 3.9+. Before publishing, the guarded lines of each script were
-mutated one at a time in a sandbox copy and the self-test was confirmed to go red on the named
-assertion, without a traceback; the unmutated control stayed green.
+Standard library only, Python 3.9+. On 2026-09-30 every self-test above passed, and
+`breakcheck.py` from [nk-breakable-selftest](https://github.com/NickkkLian/nk-breakable-selftest) broke each script on purpose in a sandbox copy:
+
+- `baseline.py`: 6 lines broken one at a time; 3 turned the self-test red without a traceback. Not covered: the self-test stayed green with L37, L39 switched off; switching off L65 crashed the script instead of failing a sample, which does not count as caught.
+
+The unmutated control stayed green every time. Only lines that record a finding, raise, or return a failing exit code
+were broken (the tool's pattern, or the hand-written list); a line number refers to the script as shipped in this version.
+This shows those lines are covered. It does not show that nothing else can fail.
 
 ## Limits
 
