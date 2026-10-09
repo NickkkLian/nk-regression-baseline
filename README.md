@@ -2,11 +2,14 @@
 
 An agent skill for [Claude Code](https://code.claude.com) and [OpenAI Codex](https://developers.openai.com/codex). Freeze the byte-exact output of production code on its default inputs before you change it, and compare after.
 
-**What you get.** One real run of nk-regression-baseline 0.1.2, copied from the terminal on 2026-09-30:
+**What you get.** One real run of nk-regression-baseline 0.1.3, copied from the terminal on 2026-10-09:
 
 ```text
-$ python3 scripts/baseline.py freeze --dir demo/baselines --name report -- cat demo/report.txt
+$ python3 scripts/baseline.py freeze --dir demo/baselines --name report --depends-on demo/prices.csv -- cat demo/report.txt
+refused: the output is identical with and without demo/prices.csv, so this baseline would pass whatever you break in that file. Nothing was saved.
+$ python3 scripts/baseline.py freeze --dir demo/baselines --name report --depends-on demo/report.txt -- cat demo/report.txt
 frozen report: exit=0 stdout=16B stderr=0B files=0
+alive: with demo/report.txt emptied in a temporary copy of the folder, stdout changed
 $ python3 scripts/baseline.py compare --dir demo/baselines --name report
 ✘ report: differs
 stdout differs (5 diff lines):
@@ -24,13 +27,14 @@ Part of [nickkk-skills](https://github.com/NickkkLian/nickkk-skills) — skills 
 
 ## Try it
 
-Nothing is installed and nothing under `~/.claude` changes: clone, run the self-test, run the example (it only writes inside the clone).
+Nothing is installed and nothing under `~/.claude` changes: clone, run the self-test, run the example (it writes inside the clone; the two `--depends-on` lines also copy the clone to the system's temporary folder and delete the copies when they finish).
 
 ```bash
 git clone https://github.com/NickkkLian/nk-regression-baseline && cd nk-regression-baseline
 python3 scripts/baseline.py --selftest
-mkdir -p demo && printf 'rows 3 total 42\n' > demo/report.txt
-python3 scripts/baseline.py freeze --dir demo/baselines --name report -- cat demo/report.txt
+mkdir -p demo && printf 'rows 3 total 42\n' > demo/report.txt && printf 'widget,14\n' > demo/prices.csv
+python3 scripts/baseline.py freeze --dir demo/baselines --name report --depends-on demo/prices.csv -- cat demo/report.txt
+python3 scripts/baseline.py freeze --dir demo/baselines --name report --depends-on demo/report.txt -- cat demo/report.txt
 printf 'rows 2 total 24\n' > demo/report.txt
 python3 scripts/baseline.py compare --dir demo/baselines --name report
 ```
@@ -38,7 +42,7 @@ python3 scripts/baseline.py compare --dir demo/baselines --name report
 The self-test prints:
 
 ```text
-baseline selftest · 11/11 passed
+baseline selftest · 21/21 passed
 ```
 
 The last command prints the block at the top of this page; its last line is the one below, and its exit code is 1 (non-zero on purpose: it found something).
@@ -52,6 +56,7 @@ The last command prints the block at the top of this page; its last line is the 
 ## What it does
 
 - `baseline.py freeze` stores stdout, stderr, exit code and output-file hashes for a command on its default inputs; `compare` re-runs and prints a unified diff; normalizers hide only what is truly volatile.
+- `freeze --depends-on FILE` refuses to save a dead baseline. It runs the command in two temporary copies of the folder, one as it is and one with FILE emptied, and when the two outputs are identical it saves nothing and says why: that baseline would pass whatever you break in FILE. Your own FILE is never touched. Without the option, `freeze` works as before.
 - Manifest mode freezes/compares a set; exit codes are usable in CI.
 - The rules: freeze first, default inputs, byte-exact then decide, rubric before verdict, no vanishing runs.
 
@@ -151,10 +156,10 @@ In this skill's Codex run, every call into the skill folder's scripts/ used that
 python3 scripts/baseline.py --selftest
 ```
 
-Standard library only, Python 3.9+. On 2026-09-30 every self-test above passed, and
+Standard library only, Python 3.9+. On 2026-10-09 every self-test above passed, and
 `breakcheck.py` from [nk-breakable-selftest](https://github.com/NickkkLian/nk-breakable-selftest) broke each script on purpose in a sandbox copy:
 
-- `baseline.py`: 6 lines broken one at a time; 3 turned the self-test red without a traceback. Not covered: the self-test stayed green with L37, L39 switched off; switching off L65 crashed the script instead of failing a sample, which does not count as caught.
+- `baseline.py`: 6 lines broken one at a time; 3 turned the self-test red without a traceback. Not covered: the self-test stayed green with L44, L46 switched off; switching off L140 crashed the script instead of failing a sample, which does not count as caught.
 
 The unmutated control stayed green every time. Only lines that record a finding, raise, or return a failing exit code
 were broken (the tool's pattern, or the hand-written list); a line number refers to the script as shipped in this version.
@@ -164,6 +169,8 @@ This shows those lines are covered. It does not show that nothing else can fail.
 
 - It compares outputs; it does not know which differences matter. That is the review.
 - Non-deterministic programs need normalizers or seeds; if the control comparison is not identical before you change anything, fix that first — you have no baseline yet.
+- `--depends-on` shows that the output depends on the file at all. It does not show that the part of the file, or the code path, you are about to change is exercised.
+- `--depends-on` copies the whole folder the command runs in, twice, and runs the command three times, so it suits a folder small enough to copy and a command quick enough to repeat. A full path on the command line is sent to the copy; a full path written inside a script is not, so that command reads your real file both times and is refused as dead. It is an option of `freeze` only, not of manifest mode.
 
 ## License
 
