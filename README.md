@@ -2,11 +2,9 @@
 
 An agent skill for [Claude Code](https://code.claude.com) and [OpenAI Codex](https://developers.openai.com/codex). Freeze the byte-exact output of production code on its default inputs before you change it, and compare after.
 
-**What you get.** One real run of nk-regression-baseline 0.1.3, copied from the terminal on 2026-10-09:
+**What you get:** freeze what a command prints today, change the code, and see exactly what moved:
 
 ```text
-$ python3 scripts/baseline.py freeze --dir demo/baselines --name report --depends-on demo/prices.csv -- cat demo/report.txt
-refused: the output is identical with and without demo/prices.csv, so this baseline would pass whatever you break in that file. Nothing was saved.
 $ python3 scripts/baseline.py freeze --dir demo/baselines --name report --depends-on demo/report.txt -- cat demo/report.txt
 frozen report: exit=0 stdout=16B stderr=0B files=0
 alive: with demo/report.txt emptied in a temporary copy of the folder, stdout changed
@@ -20,18 +18,23 @@ stdout differs (5 diff lines):
   +rows 2 total 24
 ```
 
+It also refuses to save a baseline that could never fail. Pointed at a file the output does not depend on, `freeze` saves nothing:
+
+```text
+$ python3 scripts/baseline.py freeze --dir demo/baselines --name report --depends-on demo/prices.csv -- cat demo/report.txt
+refused: the output is identical with and without demo/prices.csv, so this baseline would pass whatever you break in that file. Nothing was saved.
+```
+
 ![nk-regression-baseline](https://raw.githubusercontent.com/NickkkLian/nickkk-skills/main/gallery/social/nk-regression-baseline.png)
 
-Part of [nickkk-skills](https://github.com/NickkkLian/nickkk-skills) — skills that stop an AI coding agent's
-"done, tested, safe" from being taken on faith.
+Part of [nickkk-skills](https://github.com/NickkkLian/nickkk-skills): 14 agent skills that work with numbers, check an agent's work, guard a repository, and write and present.
 
 ## Try it
 
-Nothing is installed and nothing under `~/.claude` changes: clone, run the self-test, run the example (it writes inside the clone; the two `--depends-on` lines also copy the clone to the system's temporary folder and delete the copies when they finish).
+Clone and run the example:
 
 ```bash
 git clone https://github.com/NickkkLian/nk-regression-baseline && cd nk-regression-baseline
-python3 scripts/baseline.py --selftest
 mkdir -p demo && printf 'rows 3 total 42\n' > demo/report.txt && printf 'widget,14\n' > demo/prices.csv
 python3 scripts/baseline.py freeze --dir demo/baselines --name report --depends-on demo/prices.csv -- cat demo/report.txt
 python3 scripts/baseline.py freeze --dir demo/baselines --name report --depends-on demo/report.txt -- cat demo/report.txt
@@ -39,13 +42,9 @@ printf 'rows 2 total 24\n' > demo/report.txt
 python3 scripts/baseline.py compare --dir demo/baselines --name report
 ```
 
-The self-test prints:
+None of this installs anything or changes `~/.claude`. The example writes inside the clone; the two `--depends-on` lines also copy the clone to the system's temporary folder and delete the copies when they finish.
 
-```text
-baseline selftest · 21/21 passed
-```
-
-The last command prints the block at the top of this page; its last line is the one below, and its exit code is 1 (non-zero on purpose: it found something).
+The last command prints the `✘ report: differs` lines at the top of this page; its last line is the one below, and its exit code is 1 (non-zero on purpose: it found something).
 
 ```text
   +rows 2 total 24
@@ -156,8 +155,16 @@ In this skill's Codex run, every call into the skill folder's scripts/ used that
 python3 scripts/baseline.py --selftest
 ```
 
+The self-test prints:
+
+```text
+baseline selftest · 21/21 passed
+```
+
+The run at the top of this page is nk-regression-baseline 0.1.3, copied from the terminal on 2026-10-09; its two parts are shown in reverse order (the refusal ran first).
+
 Standard library only, Python 3.9+. On 2026-10-09 every self-test above passed, and
-`breakcheck.py` from [nk-breakable-selftest](https://github.com/NickkkLian/nk-breakable-selftest) broke each script on purpose in a sandbox copy:
+a break-check script broke each script on purpose in a sandbox copy:
 
 - `baseline.py`: 6 lines broken one at a time; 3 turned the self-test red without a traceback. Not covered: the self-test stayed green with L44, L46 switched off; switching off L140 crashed the script instead of failing a sample, which does not count as caught.
 
