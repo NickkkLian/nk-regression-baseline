@@ -2,7 +2,7 @@
 
 An agent skill for [Claude Code](https://code.claude.com) and [OpenAI Codex](https://developers.openai.com/codex). Freeze the byte-exact output of production code on its default inputs before you change it, and compare after.
 
-**What you get:** freeze what a command prints today, change the code, and see exactly what moved:
+**What you get** (a real run):
 
 ```text
 $ python3 scripts/baseline.py freeze --dir demo/baselines --name report --depends-on demo/report.txt -- cat demo/report.txt
@@ -44,18 +44,14 @@ python3 scripts/baseline.py compare --dir demo/baselines --name report
 
 None of this installs anything or changes `~/.claude`. The example writes inside the clone; the two `--depends-on` lines also copy the clone to the system's temporary folder and delete the copies when they finish.
 
-The last command prints the `✘ report: differs` lines at the top of this page; its last line is the one below, and its exit code is 1 (non-zero on purpose: it found something).
-
-```text
-  +rows 2 total 24
-```
+The last command prints the `✘ report: differs` lines at the top of this page and exits with code 1 because the output changed.
 
 ![nk-regression-baseline demo: before and after](https://raw.githubusercontent.com/NickkkLian/nickkk-skills/main/gallery/nk-regression-baseline.gif)
 
 ## What it does
 
 - `baseline.py freeze` stores stdout, stderr, exit code and output-file hashes for a command on its default inputs; `compare` re-runs and prints a unified diff; normalizers hide only what is truly volatile.
-- `freeze --depends-on FILE` refuses to save a dead baseline. It runs the command in two temporary copies of the folder, one as it is and one with FILE emptied, and when the two outputs are identical it saves nothing and says why: that baseline would pass whatever you break in FILE. Your own FILE is never touched. Without the option, `freeze` works as before.
+- `freeze --depends-on FILE` refuses to save a dead baseline. It runs the command in two temporary copies of the folder, one as it is and one with FILE emptied, and when the two outputs are identical it saves nothing and says why: that baseline would pass whatever you break in FILE. Your own FILE is never touched. Without the option, `freeze` skips this check.
 - Manifest mode freezes/compares a set; exit codes are usable in CI.
 - The rules: freeze first, default inputs, byte-exact then decide, rubric before verdict, no vanishing runs.
 
@@ -75,8 +71,6 @@ The full procedure, the boundaries and where the rules came from are in [SKILL.m
 **The idea.** New-feature tests prove the new code runs; they say nothing about the old behaviour. No new-feature test ever contains the input "feature absent".
 
 **Where it came from.** Own practice, 2026-08 to 2026-09: a media pipeline regression caught only by the byte-level baseline; two experiment rounds whose baseline arm was dead (a capped input meant the mechanism under study never started), so eight comparisons had to be thrown away.
-
-**Evidence.** What was broken on purpose to show that the self-tests can fail is under [Verify](#verify); what was run end to end, and in which agent, is under [Compatibility](#compatibility).
 
 ## Install
 
@@ -113,7 +107,7 @@ Without opening a session, the same two steps work from a shell: `claude plugin 
 
 <img src="https://raw.githubusercontent.com/NickkkLian/nickkk-skills/main/gallery/panel-route/panel-route.gif" alt="Adding the marketplace and installing a skill in the desktop app" width="640">
 
-<sub>Recorded on 2026-09-16, when the marketplace listed ten skills, all at version 0.1.0; it lists more now. The repository list in this recording shows the recorder's own repositories because a GitHub account is connected; yours will show yours. Type the full name as in step 4.</sub>
+<sub>Recorded on 2026-09-16, when the marketplace listed ten skills; it lists more now. The repository list will show your own repositories.</sub>
 
 1. In the chat box, type `/plugin marketplace` and press Enter (or open **Settings → Customize → Plugins**). The **Plugins** panel opens.
    <br><img src="https://raw.githubusercontent.com/NickkkLian/nickkk-skills/main/gallery/panel-route/step1-type-plugin-marketplace.png" alt="/plugin marketplace typed in the chat box" width="480">
@@ -169,7 +163,7 @@ a break-check script broke each script on purpose in a sandbox copy:
 - `baseline.py`: 6 lines broken one at a time; 3 turned the self-test red without a traceback. Not covered: the self-test stayed green with L44, L46 switched off; switching off L140 crashed the script instead of failing a sample, which does not count as caught.
 
 The unmutated control stayed green every time. Only lines that record a finding, raise, or return a failing exit code
-were broken (the tool's pattern, or the hand-written list); a line number refers to the script as shipped in this version.
+were broken; a line number refers to the script as shipped in this version.
 This shows those lines are covered. It does not show that nothing else can fail.
 
 ## Limits
